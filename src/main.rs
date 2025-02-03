@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use interface::{
     context::Context,
+    grid::Grid,
     keymapping::apply_input,
     settings::Settings,
     ui::{default_skin, keymappings_skin, show_debug_info, show_keymapping, show_settings},
@@ -28,6 +29,8 @@ async fn main() {
         camera,
     };
 
+    let grid = Grid::new((16, 16));
+
     loop {
         settings.display_background();
 
@@ -39,6 +42,12 @@ async fn main() {
 
         // 2D context
         set_default_camera();
+
+        grid.display(
+            vec2(screen_width() * 0.1, screen_height() * 0.1),
+            32.,
+            settings.text_color,
+        );
 
         // Buttons
         let (_, skin) = settings.skin.get_key_value(&"Default".to_string()).unwrap();

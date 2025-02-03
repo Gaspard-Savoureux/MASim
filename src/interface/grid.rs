@@ -1,5 +1,11 @@
 use std::ops::{Index, IndexMut};
 
+use macroquad::{
+    color::Color,
+    math::Vec2,
+    shapes::{draw_rectangle, draw_rectangle_lines},
+};
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum CellState {
     Empty,
@@ -26,6 +32,28 @@ impl Grid {
         Grid {
             size,
             cells: vec![vec![CellState::Empty; width]; heigth],
+        }
+    }
+
+    /// Display the grid
+    ///
+    /// **origin:** represents upper left corner of the grid
+    ///
+    /// **cell_size:** example: if 16 is given, a cell will have a size of 16x16
+    ///
+    /// **grid_color:** the color of the line making up the grid
+    ///
+    /// TODO: change cell color **OR** add element in it if not empty
+    pub fn display(&self, origin: Vec2, cell_size: f32, grid_color: Color) {
+        let Vec2 { mut x, mut y } = origin;
+        let origin_x = x;
+        for _ in 0..self.size.1 {
+            x = origin_x;
+            for _ in 0..self.size.0 {
+                draw_rectangle_lines(x, y, cell_size, cell_size, 2., grid_color);
+                x += cell_size;
+            }
+            y += cell_size;
         }
     }
 }
