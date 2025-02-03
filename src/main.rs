@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use interface::{
     context::Context,
-    grid::Grid,
+    grid::{Grid, GridSize},
     keymapping::apply_input,
     settings::Settings,
     ui::{default_skin, keymappings_skin, show_debug_info, show_keymapping, show_settings},
@@ -29,7 +29,14 @@ async fn main() {
         camera,
     };
 
-    let grid = Grid::new((16, 16));
+    let mut grid = Grid::new(
+        vec2(screen_width() * 0.1, screen_height() * 0.1),
+        GridSize {
+            width: 16,
+            heigth: 16,
+        },
+        None,
+    );
 
     loop {
         settings.display_background();

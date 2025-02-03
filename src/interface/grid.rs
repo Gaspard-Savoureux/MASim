@@ -1,9 +1,12 @@
-use std::ops::{Index, IndexMut};
+use std::{
+    ops::{Index, IndexMut},
+    vec,
+};
 
 use macroquad::{
     color::Color,
-    math::Vec2,
-    shapes::{draw_rectangle, draw_rectangle_lines},
+    math::{vec2, Vec2},
+    shapes::draw_line,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -18,21 +21,80 @@ pub enum CellState {
 //     pub state: CellState,
 //     // pub agent_type // Not sure about the implementation yet
 // }
+pub struct GridSize {
+    pub width: usize,
+    pub heigth: usize,
+}
+
+pub struct Line {
+    src: Vec2,
+    dst: Vec2,
+}
 
 pub struct Grid {
-    /// (width, heigth)
-    size: (usize, usize),
+    /// Coordinate that correspond to the upper-left corner of the grid
+    origin: Vec2,
+    /// The size of the grid. A
+    size: GridSize,
+    /// The size of a cell
+    cell_size: f32,
+    /// The lines composing the grid. Stored in the struct to not have to calculate each time
+    lines: Vec<Line>,
     /// 2-dimensional array with the state of the cells **LIKELY TO CHANGE**
     cells: Vec<Vec<CellState>>,
 }
 
 impl Grid {
-    pub fn new(size: (usize, usize)) -> Grid {
-        let (width, heigth) = size;
-        Grid {
+    pub fn new(origin: Vec2, size: GridSize, cell_size: Option<f32>) -> Grid {
+        let GridSize { width, heigth } = size;
+        let cell_size = cell_size.unwrap_or(16.);
+
+        let mut grid = Grid {
+            origin,
             size,
+            cell_size,
+            lines: Vec::with_capacity(width + heigth),
             cells: vec![vec![CellState::Empty; width]; heigth],
+        };
+
+        grid.update_lines(origin, cell_size);
+
+        grid
+    }
+
+    fn update_lines(&mut self, origin: Vec2, cell_size: f32) {
+        let Vec2 { mut x, mut y } = origin;
+        let origin_y: f32 = y;
+
+        let (x_end, y_end) = (
+            x + cell_size * self.size.width as f32,
+            y + cell_size * self.size.heigth as f32,
+        );
+
+        let mut new_lines: Vec<Line> = Vec::with_capacity(self.size.width + self.size.heigth);
+
+        // Lines for the rows
+        for _ in 0..self.size.heigth + 1 {
+            new_lines.push(Line {
+                src: vec2(x, y),
+                dst: vec2(x_end, y),
+            });
+            y += cell_size;
         }
+
+        // reset y origin for the columns
+        y = origin_y;
+
+        // Lines for the columns
+        for _ in 0..self.size.width + 1 {
+            new_lines.push(Line {
+                src: vec2(x, y),
+                dst: vec2(x, y_end),
+            });
+            x += cell_size;
+        }
+
+        self.lines = new_lines;
     }
 
     /// Display the grid
@@ -44,16 +106,16 @@ impl Grid {
     /// **grid_color:** the color of the line making up the grid
     ///
     /// TODO: change cell color **OR** add element in it if not empty
-    pub fn display(&self, origin: Vec2, cell_size: f32, grid_color: Color) {
-        let Vec2 { mut x, mut y } = origin;
-        let origin_x = x;
-        for _ in 0..self.size.1 {
-            x = origin_x;
-            for _ in 0..self.size.0 {
-                draw_rectangle_lines(x, y, cell_size, cell_size, 2., grid_color);
-                x += cell_size;
-            }
-            y += cell_size;
+    pub fn display(&mut self, origin: Vec2, cell_size: f32, grid_color: Color) {
+        // IF ORIGIN DIFFERENT UPDATE LINES
+        if self.origin.eq(&origin) || self.cell_size != cell_size {
+            self.update_lines(origin, cell_size);
+        }
+
+        for line in &self.lines {
+            draw_line(
+                line.src.x, line.src.y, line.dst.x, line.dst.y, 2., grid_color,
+            );
         }
     }
 }
@@ -78,15 +140,15 @@ mod tests {
     #[test]
     fn grid_creation() {
         let (width, heigth) = (2 as usize, 3 as usize);
-        let grid = Grid::new((width, heigth));
+        let grid = Grid::new(vec2(10., 10.), GridSize { width, heigth }, None);
 
-        assert_eq!(grid.size.0, width);
-        assert_eq!(grid.size.1, heigth);
+        assert_eq!(grid.size.width, width);
+        assert_eq!(grid.size.heigth, heigth);
         assert_eq!(grid.cells.len(), heigth);
-        for i in 0..grid.size.1 {
+        for i in 0..grid.size.heigth {
             // heigth
             assert_eq!(grid[&i].len(), width);
-            for j in 0..grid.size.0 {
+            for j in 0..grid.size.width {
                 // width
                 assert_eq!(grid[&i][j], CellState::Empty);
             }
