@@ -199,7 +199,7 @@ mod tests {
             "sing"
         );
 
-        agent.set_q_value(vec![Value::VBool(true)], "eat", 4.);
+        agent.set_q_value(default_state.clone(), "eat", 4.);
 
         assert_eq!(agent.choose_action(&default_state, &actions), "eat");
         assert_ne!(
@@ -207,7 +207,7 @@ mod tests {
             "eat"
         );
 
-        agent.set_q_value(vec![Value::VBool(false)], "move", 4.);
+        agent.set_q_value(default_state.clone(), "move", 4.);
 
         let mut count_eat = 0;
         let mut count_move = 0;
