@@ -185,7 +185,7 @@ impl Scheduler {
     }
 
     pub fn train_agents(&mut self, nb_steps: u32) {
-        for _ in 0..nb_steps {
+        for step in 0..nb_steps {
             for i in (0..self.agents.len()).rev() {
                 let (position, _, agent) = &mut self.agents[i];
 
@@ -194,6 +194,12 @@ impl Scheduler {
                 // update new position
                 *position = new_position;
             }
+
+            // Print progression
+            println!(
+                "Training agents progressions: {}%",
+                (step as f32 / nb_steps as f32) * 100.
+            );
 
             // DEBUG
             // println!("nb agents in agents: {}", self.agents.len());
