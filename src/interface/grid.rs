@@ -5,8 +5,8 @@ use std::{
 
 use macroquad::{
     color::Color,
-    math::{vec2, Vec2},
-    shapes::draw_line,
+    math::{vec2, IVec2, Vec2},
+    shapes::{draw_circle, draw_line},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -16,11 +16,6 @@ pub enum CellState {
     Agent,
 }
 
-// struct Cell {
-//     pub color: Color,
-//     pub state: CellState,
-//     // pub agent_type // Not sure about the implementation yet
-// }
 pub struct GridSize {
     pub width: usize,
     pub heigth: usize,
@@ -35,13 +30,13 @@ pub struct Grid {
     /// Coordinate that correspond to the upper-left corner of the grid
     origin: Vec2,
     /// The size of the grid. A
-    size: GridSize,
+    pub size: GridSize,
     /// The size of a cell
     cell_size: f32,
     /// The lines composing the grid. Stored in the struct to not have to calculate each time
     lines: Vec<Line>,
     /// 2-dimensional array with the state of the cells **LIKELY TO CHANGE**
-    cells: Vec<Vec<CellState>>,
+    cells: Vec<Vec<CellState>>, // NOTE POSSIBLY OBSOLETE
 }
 
 impl Grid {
@@ -105,8 +100,14 @@ impl Grid {
     ///
     /// **grid_color:** the color of the line making up the grid
     ///
-    /// TODO: change cell color **OR** add element in it if not empty
-    pub fn display(&mut self, origin: Vec2, cell_size: f32, grid_color: Color) {
+    /// **agent_positions:** the position of the agents with their colors
+    pub fn display(
+        &mut self,
+        origin: Vec2,
+        cell_size: f32,
+        grid_color: Color,
+        agent_positions: Vec<(IVec2, Color)>,
+    ) {
         // IF ORIGIN DIFFERENT UPDATE LINES
         if self.origin.eq(&origin) || self.cell_size != cell_size {
             self.update_lines(origin, cell_size);
@@ -117,9 +118,22 @@ impl Grid {
                 line.src.x, line.src.y, line.dst.x, line.dst.y, 2., grid_color,
             );
         }
+
+        let agent_size = self.cell_size / 2.;
+
+        for (position, color) in agent_positions {
+            let IVec2 { x, y } = position;
+            draw_circle(
+                self.origin.x + (x as f32 * self.cell_size) + agent_size,
+                self.origin.y + (y as f32 * self.cell_size) + agent_size,
+                agent_size,
+                color,
+            );
+        }
     }
 }
 
+// This is simply to implement index on the grid like so: grid[0]
 impl Index<&'_ usize> for Grid {
     type Output = Vec<CellState>;
     fn index(&self, index: &usize) -> &Self::Output {
