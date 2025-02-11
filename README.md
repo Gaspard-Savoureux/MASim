@@ -14,7 +14,7 @@ Multi-agent system simulator (MASim). Allow users to create and configure enviro
 2. **Clone the repo:**
 
 ```sh
-git clone https://github.com/Gaspard-Savoureux/MASim.git
+git clone https://github.com/JoyousOne/MASim.git
 cd MASim
 ```
 
