@@ -4,29 +4,24 @@ use macroquad::{
 };
 
 use crate::{
-    agent::learning_agent::Done,
+    agent::learning_agent::{Action, Done},
     interface::grid::{Grid, GridSize},
     scheduler::scheduler::{AgentRef, Position},
 };
 
 pub struct Env {
     grid: Grid,
-    pub actions: Vec<&'static str>,
+    pub actions: Vec<Action>,
     /// TODO change this, only temporary
     pub goal: (i32, i32),
     pub prefered_cells: Vec<(i32, i32)>,
 }
 
 impl Env {
-    pub fn new(
-        origin: Vec2,
-        size: GridSize,
-        cell_size: Option<f32>,
-        actions: Vec<&'static str>,
-    ) -> Env {
+    pub fn new(origin: Vec2, size: GridSize, cell_size: Option<f32>, actions: &[Action]) -> Env {
         Env {
             grid: Grid::new(origin, size, cell_size),
-            actions,
+            actions: Vec::from(actions),
             goal: (8, 8),
             prefered_cells: vec![
                 (7, 7),
@@ -73,14 +68,14 @@ impl Env {
         let action = agent.choose_action(&agent.state, &self.actions);
 
         let (new_position, next_state, reward, done) =
-            agent.step(&self, position, &agent.state, action);
+            agent.step(&self, position, &agent.state, &action);
 
         let state = agent.state.clone();
 
         // Update the agent state
         agent.update(
             &state,
-            action,
+            &action,
             reward,
             &next_state,
             &self.actions, // THIS SHOULD POSSIBLY VARY

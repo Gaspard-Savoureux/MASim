@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Value {
     /// ## Example
     /// ```rust
@@ -25,11 +27,11 @@ pub enum Value {
     /// ## Example
     /// ```rust
     /// let val: Value = "Rust".into();
-    /// let result: &'static str = val.eq_type();
+    /// let result: String = val.eq_type();
     /// assert_eq("Rust", result); // ok
     /// ```
-    VString(&'static str),
-
+    VString(String),
+    // VString(&'static str),
     /// ## Example
     /// ```rust
     /// let val: Value = true.into();
@@ -108,17 +110,17 @@ impl From<bool> for Value {
 }
 
 // For String
-impl ValueTyped for &'static str {
+impl ValueTyped for String {
     fn from_value(value: &Value) -> Self {
         match value {
-            Value::VString(s) => &s,
+            Value::VString(s) => (&s).to_string(),
             other => panic!("Expected VString, but got: {:?}", other),
         }
     }
 }
 
-impl From<&'static str> for Value {
-    fn from(value: &'static str) -> Self {
+impl From<String> for Value {
+    fn from(value: String) -> Self {
         Value::VString(value)
     }
 }
@@ -172,8 +174,8 @@ mod tests {
 
     #[test]
     fn test_string() {
-        let val: Value = "Rust".into();
-        let result: &'static str = val.eq_type();
+        let val: Value = "Rust".to_string().into();
+        let result: String = val.eq_type();
         assert_eq!("Rust", result);
     }
 
