@@ -34,7 +34,7 @@ impl Scheduler {
         }
     }
 
-    pub fn display_env(&mut self, origin: Vec2, cell_size: f32, grid_color: Color) {
+    pub fn display_env(&mut self, start: Vec2, end: Vec2, grid_color: Color) {
         let agent_positions: Vec<(Position, Color)> = self
             .agents
             .iter()
@@ -42,7 +42,7 @@ impl Scheduler {
             .collect();
 
         self.env
-            .display_grid(origin, cell_size, grid_color, agent_positions);
+            .display_grid(start, end, grid_color, agent_positions);
     }
 
     fn generate_id(&mut self) -> u32 {
@@ -75,6 +75,7 @@ impl Scheduler {
             discount_factor,
             exploration_rate,
             step_fn,
+            None,
         )));
 
         // Add new agent in Vector with all the other agents
@@ -102,6 +103,7 @@ impl Scheduler {
         discount_factor: Option<f32>,
         exploration_rate: Option<f32>,
         step_fn: &StepFunction,
+        q_table_filepath: Option<&str>,
     ) {
         let mut new_agents: Vec<(Position, Color, AgentRef)> = Vec::with_capacity(n);
 
@@ -119,6 +121,7 @@ impl Scheduler {
                 discount_factor,
                 exploration_rate,
                 step_fn,
+                q_table_filepath,
             )));
 
             new_agents.push((position, color, new_agent));
@@ -184,6 +187,51 @@ impl Scheduler {
         // }
     }
 
+    pub fn save_q_table_to_file(
+        &mut self,
+        agent: &mut AgentRef,
+        nb_steps: u32,
+        filepath: &str,
+        show_progression: bool,
+    ) {
+        let mut position = IVec2 { x: 0, y: 0 };
+
+        // Splitted like this for performance reasons.
+        // When there is a lot of steps, checking if progression is shown each step would be slower than just once before
+        if show_progression {
+            for step in 0..nb_steps {
+                let (new_position, done) = self.env.step(position, agent);
+
+                // update position
+                if done {
+                    position = IVec2 { x: 0, y: 0 };
+                } else {
+                    position = new_position;
+                }
+
+                // Print progression
+                println!(
+                    "Training agents progressions: {}%",
+                    (step as f32 / nb_steps as f32) * 100.
+                );
+            }
+        } else {
+            for _ in 0..nb_steps {
+                let (new_position, done) = self.env.step(position, agent);
+
+                // update position
+                if done {
+                    position = IVec2 { x: 0, y: 0 };
+                } else {
+                    position = new_position;
+                }
+            }
+        }
+
+        agent.borrow().save_q_table(filepath);
+    }
+
+    /// Train all the agent in the scheduler individually
     pub fn train_agents(&mut self, nb_steps: u32) {
         for step in 0..nb_steps {
             for i in (0..self.agents.len()).rev() {

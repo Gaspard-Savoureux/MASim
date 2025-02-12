@@ -19,8 +19,9 @@ pub type Reward = f32;
 pub type Done = bool;
 pub type Action = u32;
 
-pub type StepFunction =
-    Rc<dyn Fn(&LearningAgent, &Env, Position, &State, &Action) -> (Position, State, Reward, Done)>;
+pub type StepFunction = Rc<
+    dyn Fn(&LearningAgent, &mut Env, Position, &State, &Action) -> (Position, State, Reward, Done),
+>;
 
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Q {
@@ -58,12 +59,13 @@ impl LearningAgent {
         discount_factor: Option<f32>,
         exploration_rate: Option<f32>,
         step_fn: &StepFunction,
+        q_table_filepath: Option<&str>,
     ) -> LearningAgent {
         let learning_rate = learning_rate.unwrap_or(0.1);
         let discount_factor = discount_factor.unwrap_or(0.9);
         let exploration_rate = exploration_rate.unwrap_or(0.2);
 
-        LearningAgent {
+        let mut new_agent = LearningAgent {
             id,
             agent_type,
             state,
@@ -72,7 +74,13 @@ impl LearningAgent {
             discount_factor,
             exploration_rate,
             step_fn: Rc::clone(step_fn),
+        };
+
+        if let Some(filepath) = q_table_filepath {
+            new_agent.load_q_table(filepath);
         }
+
+        new_agent
     }
 
     pub fn get_q_value(&self, state: State, action: u32) -> &f32 {
@@ -88,14 +96,19 @@ impl LearningAgent {
         self.q_table.insert(Q { state, action }, value);
     }
 
-    pub fn save_q_table(self, filepath: &str) {
+    pub fn save_q_table(&self, filepath: &str) {
         let file = File::create(filepath).expect("Failed to create file");
         let mut writer = BufWriter::new(file);
 
         bincode::serialize_into(&mut writer, &self.q_table).expect("Failed to write q_table");
     }
+
     pub fn load_q_table(&mut self, filepath: &str) {
-        let file = File::open(filepath).expect("Failed to open file");
+        let file = match File::open(filepath) {
+            Ok(file) => file,
+            Err(_) => return, // We do not wish to crash if the file is non-existant
+        };
+
         let mut reader = BufReader::new(file);
 
         let q_table: QTable =
@@ -171,7 +184,7 @@ impl LearningAgent {
 
     pub fn step(
         &self,
-        env: &Env,
+        env: &mut Env,
         position: Position,
         state: &State,
         action: &Action,
@@ -182,7 +195,7 @@ impl LearningAgent {
 
 #[cfg(test)]
 mod tests {
-    use masim::define_actions;
+    use masim::define_const;
 
     use crate::agent::state::Value;
 
@@ -193,7 +206,7 @@ mod tests {
         let agent_type = "wolf";
         let func: StepFunction = Rc::new(
             move |_agent: &LearningAgent,
-                  _env: &Env,
+                  _env: &mut Env,
                   _position: Position,
                   _state: &State,
                   _action: &Action|
@@ -212,9 +225,10 @@ mod tests {
             None,
             Some(0.),
             &func,
+            None,
         );
 
-        define_actions!(EAT: 1, MOVE: 2, DANCE: 3, SING: 4);
+        define_const!(ACTIONS => EAT, MOVE, DANCE, SING);
         let actions = Vec::from(ACTIONS);
 
         agent.set_q_value(default_state.clone(), EAT, 0.);
@@ -252,7 +266,7 @@ mod tests {
             assert!(result.eq(&EAT) || result.eq(&MOVE));
         }
 
-        // Can technically be false but statistically unprobable
+        // Can technically be false but statistically improbable
         assert!(count_eat > 0);
         assert!(count_move > 0);
     }
