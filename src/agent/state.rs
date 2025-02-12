@@ -39,6 +39,14 @@ pub enum Value {
     /// assert_eq(true, result); // ok
     /// ```
     VBool(bool),
+
+    /// ## Example
+    /// ```rust
+    /// let val: Value = (123_f32, false).into();
+    /// let result: (f32, bool) = val.eq_type();
+    /// assert_eq!((123., false), result);
+    /// ```
+    VPair((Box<Value>, Box<Value>)),
 }
 
 pub trait ValueTyped: Sized {
@@ -125,6 +133,35 @@ impl From<String> for Value {
     }
 }
 
+// For Pair
+impl<T1, T2> ValueTyped for (T1, T2)
+where
+    T1: ValueTyped,
+    T2: ValueTyped,
+{
+    fn from_value(value: &Value) -> Self {
+        match value {
+            Value::VPair((left_box, right_box)) => {
+                // Convert each side back to T1, T2 via their `from_value`.
+                let left = T1::from_value(left_box);
+                let right = T2::from_value(right_box);
+                (left, right)
+            }
+            other => panic!("Expected VPair, but got: {:?}", other),
+        }
+    }
+}
+
+impl<T1, T2> From<(T1, T2)> for Value
+where
+    Value: From<T1>,
+    Value: From<T2>,
+{
+    fn from((first, second): (T1, T2)) -> Self {
+        Value::VPair((Box::new(Value::from(first)), Box::new(Value::from(second))))
+    }
+}
+
 impl Value {
     pub fn eq_type<T>(&self) -> T
     where
@@ -184,5 +221,12 @@ mod tests {
         let val: Value = true.into();
         let result: bool = val.eq_type();
         assert_eq!(true, result);
+    }
+
+    #[test]
+    fn test_pair() {
+        let val: Value = (123_f32, false).into();
+        let result: (f32, bool) = val.eq_type();
+        assert_eq!((123., false), result);
     }
 }
