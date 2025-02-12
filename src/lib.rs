@@ -3,14 +3,15 @@
 /// For example:
 /// The following:
 /// ```rust
-/// define_const!(ACTIONS => EAT, SING, DANCE)
+/// use masim::define_const;
+/// define_const!(ACTIONS => EAT, SING, DANCE);
 /// ```
 /// is equivalent to:
 /// ```rust
 /// pub const EAT: u32 = 0;
 /// pub const SING: u32 = 1;
 /// pub const DANCE: u32 = 2;
-/// pub static ACTIONS: &[32] = &[EAT, SING, DANCE];
+/// pub static ACTIONS: &[u32] = &[EAT, SING, DANCE];
 /// ```
 ///
 /// NOTE: This was a pretty good read for incremental TT munchers: https://danielkeep.github.io/tlborm/book/pat-incremental-tt-munchers.html
