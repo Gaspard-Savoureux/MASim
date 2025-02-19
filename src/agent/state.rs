@@ -47,6 +47,22 @@ pub enum Value {
     /// assert_eq!((123., false), result);
     /// ```
     VPair((Box<Value>, Box<Value>)),
+
+    /// ## Example
+    /// ```rust
+    /// let val: Value = Vec::from([1, 2, 3]).into();
+    /// let result: Vec<i32> = val.eq_type();
+    /// assert_eq!(1, result[0]);
+    /// assert_eq!(2, result[1]);
+    /// assert_eq!(3, result[2]);
+    ///
+    /// let val: Value = Vec::from([true, false, true]).into();
+    /// let result: Vec<bool> = val.eq_type();
+    /// assert_eq!(true, result[0]);
+    /// assert_eq!(false, result[1]);
+    /// assert_eq!(true, result[2]);
+    /// ```
+    VVec(Vec<Value>),
 }
 
 pub trait ValueTyped: Sized {
@@ -162,6 +178,29 @@ where
     }
 }
 
+// For Vec
+impl<T> ValueTyped for Vec<T>
+where
+    T: ValueTyped,
+{
+    fn from_value(value: &Value) -> Self {
+        match value {
+            Value::VVec(vec) => vec.iter().map(|x| T::from_value(x)).collect(),
+            other => panic!("Expected VVec, but got: {:?}", other),
+        }
+    }
+}
+
+impl<T> From<Vec<T>> for Value
+where
+    Value: From<T>,
+    T: Copy,
+{
+    fn from(value: Vec<T>) -> Self {
+        Value::VVec(value.iter().map(|x| Value::from(*x)).collect())
+    }
+}
+
 impl Value {
     pub fn eq_type<T>(&self) -> T
     where
@@ -228,5 +267,20 @@ mod tests {
         let val: Value = (123_f32, false).into();
         let result: (f32, bool) = val.eq_type();
         assert_eq!((123., false), result);
+    }
+
+    #[test]
+    fn test_vair() {
+        let val: Value = Vec::from([1, 2, 3]).into();
+        let result: Vec<i32> = val.eq_type();
+        assert_eq!(1, result[0]);
+        assert_eq!(2, result[1]);
+        assert_eq!(3, result[2]);
+
+        let val: Value = Vec::from([true, false, true]).into();
+        let result: Vec<bool> = val.eq_type();
+        assert_eq!(true, result[0]);
+        assert_eq!(false, result[1]);
+        assert_eq!(true, result[2]);
     }
 }
