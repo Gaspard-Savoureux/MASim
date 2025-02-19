@@ -7,7 +7,7 @@ use macroquad::{
 
 use crate::{
     agent::{
-        learning_agent::{Action, Done},
+        agent::{Action, Done, IsAgent},
         state::Value,
     },
     interface::grid::{Grid, GridSize},
@@ -33,13 +33,8 @@ impl Env {
         actions: &[Action],
         data: HashMap<u32, Value>,
     ) -> Env {
-        let grid_persistent_elements: Vec<(Position, Color)> = persistent_elements
-            .iter()
-            .map(|(&pos, &color)| (pos, color))
-            .collect();
-
         Env {
-            grid: Grid::new(start, end, size, grid_persistent_elements),
+            grid: Grid::new(start, end, size),
             actions: Vec::from(actions),
             persistent_elements: persistent_elements,
             data,
@@ -61,7 +56,13 @@ impl Env {
         grid_color: Color,
         agent_positions: Vec<(IVec2, Color)>,
     ) {
-        self.grid.display(start, end, grid_color, agent_positions);
+        self.grid.display(
+            start,
+            end,
+            grid_color,
+            agent_positions,
+            &self.persistent_elements,
+        );
     }
 
     pub fn valid_position(&self, position: IVec2) -> bool {
@@ -74,12 +75,12 @@ impl Env {
     pub fn step(&mut self, position: Position, agent: &mut AgentRef) -> (Position, Done) {
         let mut agent = agent.borrow_mut();
 
-        let action = agent.choose_action(&agent.state, &self.actions);
+        let action = agent.choose_action(&agent.get_state(), &self.actions);
 
         let (new_position, next_state, reward, done) =
-            agent.step(self, position, &agent.state, &action);
+            agent.step(self, position, &agent.get_state(), &action);
 
-        let state = agent.state.clone();
+        let state = agent.get_state().clone();
 
         // Update the agent state
         agent.update(
@@ -90,7 +91,7 @@ impl Env {
             &self.actions, // THIS SHOULD POSSIBLY VARY
         );
 
-        agent.update_state(next_state);
+        agent.set_state(next_state);
 
         (new_position, done)
     }
@@ -108,15 +109,6 @@ impl Env {
     pub fn move_persistent_element(&mut self, current_position: Position, new_position: Position) {
         if let Some(element) = self.persistent_elements.remove(&current_position) {
             self.persistent_elements.insert(new_position, element);
-
-            let grid_persistent_elements: Vec<(Position, Color)> = self
-                .persistent_elements
-                .iter()
-                .map(|(&pos, &color)| (pos, color))
-                .collect();
-
-            self.grid
-                .update_persistent_element(grid_persistent_elements);
         }
     }
 }

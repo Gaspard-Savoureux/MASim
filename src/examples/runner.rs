@@ -9,7 +9,8 @@ use masim::define_const;
 
 use crate::{
     agent::{
-        learning_agent::{Action, Done, LearningAgent, Reward, StepFunction},
+        agent::{Action, Agent, Done, Reward, StepFunction},
+        learning_agent::LearningAgent,
         state::{to_value, State, Value},
     },
     environment::environment::Env,
@@ -43,7 +44,7 @@ pub fn main() -> Scheduler {
 
     let mut scheduler = Scheduler::new(env);
 
-    let runner_func: StepFunction = Rc::new(
+    let runner_func: StepFunction<LearningAgent> = Rc::new(
         move |_agent: &LearningAgent,
               env: &mut Env,
               position: Position,
@@ -183,8 +184,12 @@ pub fn main() -> Scheduler {
     scheduler
 }
 
-fn train_agent(scheduler: &mut Scheduler, step_fn: &StepFunction, q_table_filepath: &str) {
-    let mut new_agent = Rc::new(RefCell::new(LearningAgent::new(
+fn train_agent(
+    scheduler: &mut Scheduler,
+    step_fn: &StepFunction<LearningAgent>,
+    q_table_filepath: &str,
+) {
+    let mut new_agent = Rc::new(RefCell::new(Agent::Learning(LearningAgent::new(
         1000,
         "runner",
         vec![
@@ -198,7 +203,7 @@ fn train_agent(scheduler: &mut Scheduler, step_fn: &StepFunction, q_table_filepa
         Some(0.4),
         step_fn,
         Some(&q_table_filepath),
-    )));
+    ))));
 
     scheduler.save_q_table_to_file(&mut new_agent, 1000, &q_table_filepath, true);
 }

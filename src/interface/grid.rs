@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use macroquad::{
     color::Color,
     math::{vec2, IVec2, Vec2},
@@ -5,13 +7,6 @@ use macroquad::{
 };
 
 use crate::scheduler::scheduler::Position;
-
-// #[derive(Debug, Clone, PartialEq)]
-// pub enum CellState {
-//     Empty,
-//     Obstacle,
-//     Agent,
-// }
 
 pub struct GridSize {
     pub width: usize,
@@ -32,8 +27,6 @@ pub struct Grid {
     pub size: GridSize,
     /// The lines composing the grid. Stored in the struct to not have to calculate each time
     lines: Vec<Line>,
-    /// Element with persistent long term position such as obstacles (walls, bushes, etc.), the goal cell, etc.
-    persistent_elements: Vec<(Position, Color)>,
 }
 
 impl Grid {
@@ -41,7 +34,7 @@ impl Grid {
         start: Vec2,
         end: Vec2,
         size: GridSize,
-        persistent_elements: Vec<(Position, Color)>,
+        // persistent_elements: Vec<(Position, Color)>,
     ) -> Grid {
         let GridSize { width, heigth } = size;
 
@@ -51,7 +44,7 @@ impl Grid {
             size,
             lines: Vec::with_capacity(width + heigth),
             // cells: vec![vec![CellState::Empty; width]; heigth],
-            persistent_elements,
+            // persistent_elements,
         };
 
         grid.update_lines(start, end);
@@ -59,9 +52,9 @@ impl Grid {
         grid
     }
 
-    pub fn update_persistent_element(&mut self, new_elements: Vec<(Position, Color)>) {
-        self.persistent_elements = new_elements;
-    }
+    // pub fn update_persistent_element(&mut self, new_elements: Vec<(Position, Color)>) {
+    //     self.persistent_elements = new_elements;
+    // }
 
     fn update_lines(&mut self, start: Vec2, end: Vec2) {
         let Vec2 { mut x, mut y } = start;
@@ -115,6 +108,8 @@ impl Grid {
     ///
     /// **agent_positions:** the position of the agents with their colors
     ///
+    /// **persistent_elements:** Element with persistent long term position such as obstacles (walls, bushes, etc.), the goal cell, etc.
+    ///
     /// NOTE: Some line appear thicker from time to time
     pub fn display(
         &mut self,
@@ -122,6 +117,7 @@ impl Grid {
         end: Vec2,
         grid_color: Color,
         agent_positions: Vec<(IVec2, Color)>,
+        persistent_elements: &HashMap<Position, Color>,
     ) {
         // IF ORIGIN DIFFERENT UPDATE LINES
         if !self.start.eq(&start) || !self.end.eq(&end) {
@@ -158,7 +154,7 @@ impl Grid {
         }
 
         // Draw persitent elements
-        for (position, color) in &self.persistent_elements {
+        for (position, color) in persistent_elements {
             let IVec2 { x, y } = position;
             draw_rectangle(
                 x_start + (*x as f32 * cell_width),

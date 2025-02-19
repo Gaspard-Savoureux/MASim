@@ -7,13 +7,16 @@ use macroquad::{
 
 use crate::{
     agent::{
-        learning_agent::{LearningAgent, StepFunction},
+        agent::{Agent, IsAgent, StepFunction},
+        learning_agent::LearningAgent,
         state::State,
+        swarm_agent::SwarmAgent,
     },
     environment::environment::Env,
 };
 
-pub type AgentRef = Rc<RefCell<LearningAgent>>;
+pub type AgentRef = Rc<RefCell<Agent>>;
+// pub type AgentRef = Rc<RefCell<LearningAgent>>;
 pub type Position = IVec2;
 pub struct Scheduler {
     pub agents: Vec<(Position, Color, AgentRef)>,
@@ -50,48 +53,48 @@ impl Scheduler {
         self.current_id
     }
 
-    /// Add **ONE** agent
-    pub fn add_agent(
-        &mut self,
-        position: Option<Position>,
-        color: Color,
-        agent_type: &'static str,
-        state: State,
-        learning_rate: Option<f32>,
-        discount_factor: Option<f32>,
-        exploration_rate: Option<f32>,
-        step_fn: &StepFunction,
-    ) {
-        let position = position.unwrap_or(Position {
-            x: rand::random_range(0..*self.env.get_width() as i32),
-            y: rand::random_range(0..*self.env.get_heigth() as i32),
-        });
+    // Add **ONE** agent
+    // pub fn add_agent(
+    //     &mut self,
+    //     position: Option<Position>,
+    //     color: Color,
+    //     agent_type: &'static str,
+    //     state: State,
+    //     learning_rate: Option<f32>,
+    //     discount_factor: Option<f32>,
+    //     exploration_rate: Option<f32>,
+    //     step_fn: &StepFunction,
+    // ) {
+    //     let position = position.unwrap_or(Position {
+    //         x: rand::random_range(0..*self.env.get_width() as i32),
+    //         y: rand::random_range(0..*self.env.get_heigth() as i32),
+    //     });
 
-        let new_agent = Rc::new(RefCell::new(LearningAgent::new(
-            self.generate_id(),
-            agent_type,
-            state,
-            learning_rate,
-            discount_factor,
-            exploration_rate,
-            step_fn,
-            None,
-        )));
+    //     let new_agent = Rc::new(RefCell::new(LearningAgent::new(
+    //         self.generate_id(),
+    //         agent_type,
+    //         state,
+    //         learning_rate,
+    //         discount_factor,
+    //         exploration_rate,
+    //         step_fn,
+    //         None,
+    //     )));
 
-        // Add new agent in Vector with all the other agents
-        self.agents.push((position, color, new_agent.clone()));
+    //     // Add new agent in Vector with all the other agents
+    //     self.agents.push((position, color, new_agent.clone()));
 
-        // Add new agent in agents_per_types
-        let agents = self.agents_per_types.get_mut(agent_type);
-        match agents {
-            Some(list) => list.push(new_agent),
-            None => {
-                let _ = self.agents_per_types.insert(agent_type, vec![new_agent]);
-            }
-        }
-    }
+    //     // Add new agent in agents_per_types
+    //     let agents = self.agents_per_types.get_mut(agent_type);
+    //     match agents {
+    //         Some(list) => list.push(new_agent),
+    //         None => {
+    //             let _ = self.agents_per_types.insert(agent_type, vec![new_agent]);
+    //         }
+    //     }
+    // }
 
-    /// Add **Multiple** agents
+    /// Add **Multiple** learning agents
     pub fn add_agents(
         &mut self,
         n: usize,
@@ -102,7 +105,7 @@ impl Scheduler {
         learning_rate: Option<f32>,
         discount_factor: Option<f32>,
         exploration_rate: Option<f32>,
-        step_fn: &StepFunction,
+        step_fn: &StepFunction<LearningAgent>,
         q_table_filepath: Option<&str>,
     ) {
         let mut new_agents: Vec<(Position, Color, AgentRef)> = Vec::with_capacity(n);
@@ -113,7 +116,7 @@ impl Scheduler {
                 y: rand::random_range(0..*self.env.get_heigth() as i32),
             });
 
-            let new_agent = Rc::new(RefCell::new(LearningAgent::new(
+            let new_agent = Rc::new(RefCell::new(Agent::Learning(LearningAgent::new(
                 self.generate_id(),
                 agent_type,
                 state.clone(),
@@ -122,7 +125,63 @@ impl Scheduler {
                 exploration_rate,
                 step_fn,
                 q_table_filepath,
-            )));
+            ))));
+
+            new_agents.push((position, color, new_agent));
+        }
+
+        // Add all the new agents in Vector with all the other agents
+        self.agents.append(&mut new_agents);
+
+        // Add new agent in agents_per_types
+        let agents = self.agents_per_types.get_mut(agent_type);
+
+        let mut new_agents_type: Vec<AgentRef> = new_agents
+            .iter()
+            .map(|(_, _, agent)| agent.clone())
+            .collect();
+        match agents {
+            Some(list) => {
+                list.append(&mut new_agents_type);
+            }
+            None => {
+                let _ = self.agents_per_types.insert(agent_type, new_agents_type);
+            }
+        }
+    }
+
+    /// Add **Multiple** swarming agents
+    pub fn add_swarming_agents(
+        &mut self,
+        n: usize,
+        position: Option<Position>,
+        color: Color,
+        agent_type: &'static str,
+        state: State,
+        learning_rate: Option<f32>,
+        discount_factor: Option<f32>,
+        exploration_rate: Option<f32>,
+        step_fn: &StepFunction<SwarmAgent>,
+        q_table_filepath: Option<&str>,
+    ) {
+        let mut new_agents: Vec<(Position, Color, AgentRef)> = Vec::with_capacity(n);
+
+        for _ in 0..n {
+            let position = position.unwrap_or(Position {
+                x: rand::random_range(0..*self.env.get_width() as i32),
+                y: rand::random_range(0..*self.env.get_heigth() as i32),
+            });
+
+            let new_agent = Rc::new(RefCell::new(Agent::Swarm(SwarmAgent::new(
+                self.generate_id(),
+                agent_type,
+                state.clone(),
+                learning_rate,
+                discount_factor,
+                exploration_rate,
+                step_fn,
+                q_table_filepath,
+            ))));
 
             new_agents.push((position, color, new_agent));
         }
@@ -165,9 +224,9 @@ impl Scheduler {
 
                     remove = true;
 
-                    match self.agents_per_types.get_mut(agent.agent_type) {
+                    match self.agents_per_types.get_mut(agent.get_type()) {
                       // NOTE: Could be replaced by hashmap for faster delete
-                      Some(agents) => agents.retain(|a| a.borrow().id != agent.id),
+                      Some(agents) => agents.retain(|a| a.borrow().get_unique_id() != agent.get_unique_id()),
                       None => panic!("Trying to remove agent from inexisting type. This is not supposed to be possible :|"),
                     }
                 }

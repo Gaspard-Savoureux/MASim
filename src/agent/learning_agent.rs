@@ -1,40 +1,25 @@
 use std::{
     collections::HashMap,
-    fmt::Debug,
     fs::File,
-    hash::Hash,
     io::{BufReader, BufWriter},
     rc::Rc,
 };
 
 use macroquad::rand::ChooseRandom;
-use serde::{Deserialize, Serialize};
 
 use crate::{environment::environment::Env, scheduler::scheduler::Position};
 
-use super::state::State;
-
-pub type QTable = HashMap<Q, f32>;
-pub type Reward = f32;
-pub type Done = bool;
-pub type Action = u32;
-
-pub type StepFunction = Rc<
-    dyn Fn(&LearningAgent, &mut Env, Position, &State, &Action) -> (Position, State, Reward, Done),
->;
-
-#[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Q {
-    state: State,
-    action: u32,
-}
+use super::{
+    agent::{IsAgent, QTable, StepFunction, Q},
+    state::State,
+};
 
 #[derive()]
 pub struct LearningAgent {
     /// unique id of the agent
     pub id: u32,
     /// The type of the agent. Example: wolf, sheep, etc.
-    pub agent_type: &'static str,
+    pub agent_type: &'static str, // TODO change to u32 and use define_const!()
     /// position in a 2D graphe
     pub state: State,
     /// Q-values
@@ -47,43 +32,27 @@ pub struct LearningAgent {
     /// epsilon / exploration rate
     pub exploration_rate: f32,
     /// Function representing a step
-    step_fn: StepFunction,
+    step_fn: StepFunction<LearningAgent>,
 }
 
-impl LearningAgent {
-    pub fn new(
-        id: u32,
-        agent_type: &'static str,
-        state: State,
-        learning_rate: Option<f32>,
-        discount_factor: Option<f32>,
-        exploration_rate: Option<f32>,
-        step_fn: &StepFunction,
-        q_table_filepath: Option<&str>,
-    ) -> LearningAgent {
-        let learning_rate = learning_rate.unwrap_or(0.1);
-        let discount_factor = discount_factor.unwrap_or(0.9);
-        let exploration_rate = exploration_rate.unwrap_or(0.2);
-
-        let mut new_agent = LearningAgent {
-            id,
-            agent_type,
-            state,
-            q_table: HashMap::new(),
-            learning_rate,
-            discount_factor,
-            exploration_rate,
-            step_fn: Rc::clone(step_fn),
-        };
-
-        if let Some(filepath) = q_table_filepath {
-            new_agent.load_q_table(filepath);
-        }
-
-        new_agent
+impl IsAgent for LearningAgent {
+    fn get_unique_id(&self) -> u32 {
+        self.id
     }
 
-    pub fn get_q_value(&self, state: State, action: u32) -> &f32 {
+    fn get_type(&self) -> &'static str {
+        self.agent_type
+    }
+
+    fn get_state(&self) -> &State {
+        &self.state
+    }
+
+    fn set_state(&mut self, state: State) {
+        self.state = state;
+    }
+
+    fn get_q_value(&self, state: State, action: u32) -> &f32 {
         let k = Q { state, action };
 
         match self.q_table.get(&k) {
@@ -92,18 +61,18 @@ impl LearningAgent {
         }
     }
 
-    pub fn set_q_value(&mut self, state: State, action: u32, value: f32) {
+    fn set_q_value(&mut self, state: State, action: u32, value: f32) {
         self.q_table.insert(Q { state, action }, value);
     }
 
-    pub fn save_q_table(&self, filepath: &str) {
+    fn save_q_table(&self, filepath: &str) {
         let file = File::create(filepath).expect("Failed to create file");
         let mut writer = BufWriter::new(file);
 
         bincode::serialize_into(&mut writer, &self.q_table).expect("Failed to write q_table");
     }
 
-    pub fn load_q_table(&mut self, filepath: &str) {
+    fn load_q_table(&mut self, filepath: &str) {
         let file = match File::open(filepath) {
             Ok(file) => file,
             Err(_) => return, // We do not wish to crash if the file is non-existant
@@ -116,29 +85,8 @@ impl LearningAgent {
         self.q_table = q_table;
     }
 
-    pub fn update_state(&mut self, state: State) {
-        self.state = state;
-    }
-
-    /// Returns subset of q values with the same state and actions
-    fn q_values_subset(&self, state: &State, actions: &Vec<u32>) -> HashMap<&Q, &f32> {
-        self.q_table
-            .iter()
-            .filter(|(k, _)| k.state == *state && actions.contains(&k.action))
-            .collect()
-    }
-
-    fn max_q_val(&self, q_values: &HashMap<&Q, &f32>) -> f32 {
-        let max_entry = q_values.iter().max_by(|&a, &b| a.1.total_cmp(b.1));
-
-        match max_entry {
-            Some((_, val)) => **val,
-            None => 0.0,
-        }
-    }
-
     /// Epsilon-greedy action selection
-    pub fn choose_action(&self, state: &State, actions: &Vec<u32>) -> u32 {
+    fn choose_action(&self, state: &State, actions: &Vec<u32>) -> u32 {
         if rand::random_range(0.0..1.) < self.exploration_rate || self.q_table.is_empty() {
             return *actions.choose().unwrap();
         }
@@ -165,7 +113,7 @@ impl LearningAgent {
     ///
     /// Q-learning update rule:
     /// Q(s, a) <- Q(s, a) + alpha * (reward + gamma * max_a' Q(s', a') - Q(s, a))
-    pub fn update(
+    fn update(
         &mut self,
         state: &State,
         action: &u32,
@@ -182,14 +130,65 @@ impl LearningAgent {
         self.set_q_value(state.clone(), *action, new_q_value);
     }
 
-    pub fn step(
+    fn step(
         &self,
         env: &mut Env,
         position: Position,
         state: &State,
-        action: &Action,
-    ) -> (Position, State, Reward, Done) {
+        action: &super::agent::Action,
+    ) -> (Position, State, super::agent::Reward, super::agent::Done) {
         (self.step_fn)(&self, env, position, state, action)
+    }
+}
+
+impl LearningAgent {
+    pub fn new(
+        id: u32,
+        agent_type: &'static str,
+        state: State,
+        learning_rate: Option<f32>,
+        discount_factor: Option<f32>,
+        exploration_rate: Option<f32>,
+        step_fn: &StepFunction<LearningAgent>,
+        q_table_filepath: Option<&str>,
+    ) -> Self {
+        let learning_rate = learning_rate.unwrap_or(0.1);
+        let discount_factor = discount_factor.unwrap_or(0.9);
+        let exploration_rate = exploration_rate.unwrap_or(0.2);
+
+        let mut new_agent = LearningAgent {
+            id,
+            agent_type,
+            state,
+            q_table: HashMap::new(),
+            learning_rate,
+            discount_factor,
+            exploration_rate,
+            step_fn: Rc::clone(step_fn),
+        };
+
+        if let Some(filepath) = q_table_filepath {
+            new_agent.load_q_table(filepath);
+        }
+
+        new_agent
+    }
+
+    /// Returns subset of q values with the same state and actions
+    fn q_values_subset(&self, state: &State, actions: &Vec<u32>) -> HashMap<&Q, &f32> {
+        self.q_table
+            .iter()
+            .filter(|(k, _)| k.state == *state && actions.contains(&k.action))
+            .collect()
+    }
+
+    fn max_q_val(&self, q_values: &HashMap<&Q, &f32>) -> f32 {
+        let max_entry = q_values.iter().max_by(|&a, &b| a.1.total_cmp(b.1));
+
+        match max_entry {
+            Some((_, val)) => **val,
+            None => 0.0,
+        }
     }
 }
 
@@ -197,14 +196,17 @@ impl LearningAgent {
 mod tests {
     use masim::define_const;
 
-    use crate::agent::state::Value;
+    use crate::agent::{
+        agent::{Action, Done, Reward},
+        state::Value,
+    };
 
     use super::*;
 
     #[test]
     fn choosing_action() {
         let agent_type = "wolf";
-        let func: StepFunction = Rc::new(
+        let func: StepFunction<LearningAgent> = Rc::new(
             move |_agent: &LearningAgent,
                   _env: &mut Env,
                   _position: Position,
