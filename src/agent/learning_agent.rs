@@ -10,7 +10,7 @@ use macroquad::rand::ChooseRandom;
 use crate::{environment::environment::Env, scheduler::scheduler::Position};
 
 use super::{
-    agent::{IsAgent, QTable, StepFunction, Q},
+    agent::{Done, IsAgent, QTable, Reward, StepFunction, Q},
     state::State,
 };
 
@@ -24,7 +24,6 @@ pub struct LearningAgent {
     pub state: State,
     /// Q-values
     q_table: QTable,
-    // q_values: HashMap<Q, f32>,
     /// alpha / learning rate
     pub learning_rate: f32,
     /// gamma / discount factor
@@ -52,12 +51,12 @@ impl IsAgent for LearningAgent {
         self.state = state;
     }
 
-    fn get_q_value(&self, state: State, action: u32) -> &f32 {
+    fn get_q_value(&self, state: State, action: u32) -> f32 {
         let k = Q { state, action };
 
         match self.q_table.get(&k) {
-            Some(value) => value,
-            None => &0.,
+            Some(value) => *value,
+            None => 0.,
         }
     }
 
@@ -136,7 +135,7 @@ impl IsAgent for LearningAgent {
         position: Position,
         state: &State,
         action: &super::agent::Action,
-    ) -> (Position, State, super::agent::Reward, super::agent::Done) {
+    ) -> (Position, State, Reward, Done) {
         (self.step_fn)(&self, env, position, state, action)
     }
 }

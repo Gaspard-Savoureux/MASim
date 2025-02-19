@@ -11,20 +11,10 @@ pub type Reward = f32;
 pub type Done = bool;
 pub type Action = u32;
 
-// pub type StepFunction = Rc<
-//     dyn Fn(
-//         &mut dyn IsAgent,
-//         &mut Env,
-//         Position,
-//         &State,
-//         &Action,
-//     ) -> (Position, State, Reward, Done),
-// >;
-
 pub type StepFunction<A> =
     Rc<dyn Fn(&A, &mut Env, Position, &State, &Action) -> (Position, State, Reward, Done)>;
 
-#[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Q {
     pub state: State,
     pub action: u32,
@@ -44,7 +34,7 @@ pub trait IsAgent {
 
     fn set_state(&mut self, state: State);
 
-    fn get_q_value(&self, state: State, action: u32) -> &f32;
+    fn get_q_value(&self, state: State, action: u32) -> f32;
 
     fn set_q_value(&mut self, state: State, action: u32, value: f32);
 
@@ -105,7 +95,7 @@ impl IsAgent for Agent {
         }
     }
 
-    fn get_q_value(&self, state: State, action: u32) -> &f32 {
+    fn get_q_value(&self, state: State, action: u32) -> f32 {
         match self {
             Agent::Learning(learning_agent) => learning_agent.get_q_value(state, action),
             Agent::Swarm(swarm_agent) => swarm_agent.get_q_value(state, action),
