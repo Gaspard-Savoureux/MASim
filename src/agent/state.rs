@@ -81,6 +81,15 @@ pub enum Value {
     /// let result: HashMap<String, f32> = val.eq_type();
     /// assert_eq!(result.get(&"rusty".to_string()), Some(&3.4));
     /// assert_eq!(result.get(&"crab".to_string()), Some(&7.5));
+    ///
+    ///
+    /// // inserting value from reference
+    /// if let Some(map) = val.as_map_mut() {
+    ///     map.insert("caramel".to_string().into(), 5.3.into());
+    ///
+    ///     let value = map.get(&Value::VString("caramel".to_string())).unwrap();
+    ///     assert_eq!(to_value(5.3), value.clone())
+    /// }
     /// ```
     VMap(HashMap<Value, Value>),
 }
@@ -296,7 +305,6 @@ where
     }
 }
 
-// impl From<HashMap<Value, Value>> for Value {
 impl<T1, T2> From<HashMap<T1, T2>> for Value
 where
     Value: From<T1>,
@@ -312,13 +320,27 @@ where
     }
 }
 
-//
+// Value Implementation
 impl Value {
     pub fn eq_type<T>(&self) -> T
     where
         T: ValueTyped,
     {
         T::from_value(self)
+    }
+
+    pub fn as_map(&mut self) -> Option<&HashMap<Value, Value>> {
+        match self {
+            Value::VMap(ref map) => Some(map),
+            _ => None,
+        }
+    }
+
+    pub fn as_map_mut(&mut self) -> Option<&mut HashMap<Value, Value>> {
+        match self {
+            Value::VMap(ref mut map) => Some(map),
+            _ => None,
+        }
     }
 }
 
@@ -403,10 +425,18 @@ mod tests {
         assert_eq!(result.get(&1), Some(&3.4));
         assert_eq!(result.get(&2), Some(&7.5));
 
-        let val: Value =
+        let mut val: Value =
             HashMap::from([("rusty".to_string(), 3.4), ("crab".to_string(), 7.5)]).into();
         let result: HashMap<String, f32> = val.eq_type();
         assert_eq!(result.get(&"rusty".to_string()), Some(&3.4));
         assert_eq!(result.get(&"crab".to_string()), Some(&7.5));
+
+        // inserting value from reference
+        if let Some(map) = val.as_map_mut() {
+            map.insert("caramel".to_string().into(), 5.3.into());
+
+            let value = map.get(&Value::VString("caramel".to_string())).unwrap();
+            assert_eq!(to_value(5.3), value.clone())
+        }
     }
 }
