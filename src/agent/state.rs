@@ -1,6 +1,11 @@
+use std::{
+    collections::HashMap,
+    hash::{Hash, Hasher},
+};
+
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Value {
     /// ## Example
     /// ```rust
@@ -63,6 +68,77 @@ pub enum Value {
     /// assert_eq!(true, result[2]);
     /// ```
     VVec(Vec<Value>),
+
+    /// ## Example
+    /// ```rust
+    /// let val: Value = HashMap::from([(1, 3.4), (2, 7.5)]).into();
+    /// let result: HashMap<i32, f32> = val.eq_type();
+    /// assert_eq!(result.get(&1), Some(&3.4));
+    /// assert_eq!(result.get(&2), Some(&7.5));
+    ///
+    /// let val: Value =
+    ///     HashMap::from([("rusty".to_string(), 3.4), ("crab".to_string(), 7.5)]).into();
+    /// let result: HashMap<String, f32> = val.eq_type();
+    /// assert_eq!(result.get(&"rusty".to_string()), Some(&3.4));
+    /// assert_eq!(result.get(&"crab".to_string()), Some(&7.5));
+    /// ```
+    VMap(HashMap<Value, Value>),
+}
+
+// Manual `Hash` implementation
+impl Hash for Value {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Each variant should have a distinct "tag" so you don't collide
+        // between variants that have the same internal data.
+        match self {
+            Value::VI32(x) => {
+                0u8.hash(state);
+                x.hash(state);
+            }
+            Value::VU32(x) => {
+                1u8.hash(state);
+                x.hash(state);
+            }
+            Value::VFloat(x) => {
+                2u8.hash(state);
+                x.hash(state);
+            }
+            Value::VString(s) => {
+                3u8.hash(state);
+                s.hash(state);
+            }
+            Value::VBool(b) => {
+                4u8.hash(state);
+                b.hash(state);
+            }
+            Value::VPair((l, r)) => {
+                5u8.hash(state);
+                l.hash(state);
+                r.hash(state);
+            }
+            Value::VVec(v) => {
+                6u8.hash(state);
+                v.hash(state);
+            }
+            Value::VMap(map) => {
+                7u8.hash(state);
+                // Convert the map to a sortable list of pairs so the hashing
+                // is stable (otherwise order is nondeterministic).
+                //
+                // This does *require* that `Value` is at least comparable in
+                // some stable way. If you can't do that with `Ord`, you might do
+                // something hacky like sorting by the debug string of each key.
+                //
+                // Example sorting by debug string:
+                let mut kvs: Vec<(&Value, &Value)> = map.iter().collect();
+                kvs.sort_by_key(|(k, _)| format!("{:?}", k));
+                for (k, v) in kvs {
+                    k.hash(state);
+                    v.hash(state);
+                }
+            }
+        }
+    }
 }
 
 pub trait ValueTyped: Sized {
@@ -201,6 +277,42 @@ where
     }
 }
 
+// For Map
+impl<T1, T2> ValueTyped for HashMap<T1, T2>
+where
+    T1: ValueTyped + std::cmp::Eq + Hash,
+    T2: ValueTyped,
+    // impl ValueTyped for HashMap<Value, Value>
+{
+    fn from_value(value: &Value) -> Self {
+        match value {
+            Value::VMap(m) => m
+                .into_iter()
+                .map(|(k, v)| (T1::from_value(k), T2::from_value(v)))
+                .collect(),
+            // Value::VMap(m) => m.clone(),
+            other => panic!("Expected VMap, got: {:?}", other),
+        }
+    }
+}
+
+// impl From<HashMap<Value, Value>> for Value {
+impl<T1, T2> From<HashMap<T1, T2>> for Value
+where
+    Value: From<T1>,
+    Value: From<T2>,
+{
+    fn from(map: HashMap<T1, T2>) -> Self {
+        // fn from(map: HashMap<Value, Value>) -> Self {
+        let converted_map = map
+            .into_iter()
+            .map(|(k, v)| (Value::from(k), Value::from(v)))
+            .collect();
+        Value::VMap(converted_map)
+    }
+}
+
+//
 impl Value {
     pub fn eq_type<T>(&self) -> T
     where
@@ -282,5 +394,19 @@ mod tests {
         assert_eq!(true, result[0]);
         assert_eq!(false, result[1]);
         assert_eq!(true, result[2]);
+    }
+
+    #[test]
+    fn test_map() {
+        let val: Value = HashMap::from([(1, 3.4), (2, 7.5)]).into();
+        let result: HashMap<i32, f32> = val.eq_type();
+        assert_eq!(result.get(&1), Some(&3.4));
+        assert_eq!(result.get(&2), Some(&7.5));
+
+        let val: Value =
+            HashMap::from([("rusty".to_string(), 3.4), ("crab".to_string(), 7.5)]).into();
+        let result: HashMap<String, f32> = val.eq_type();
+        assert_eq!(result.get(&"rusty".to_string()), Some(&3.4));
+        assert_eq!(result.get(&"crab".to_string()), Some(&7.5));
     }
 }
