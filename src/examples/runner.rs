@@ -96,7 +96,7 @@ pub fn main() -> Scheduler {
             let mut reward: Reward = -1.;
 
             // State doesn't check wall or border so we shall not change the reward
-            if !env.valid_position(new_position) {
+            if !env.position_inbound(new_position) {
                 let state = if !above && !below && !left && !right {
                     get_new_state((new_x, new_y), (goal_x, goal_y))
                 } else {
