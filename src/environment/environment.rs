@@ -65,7 +65,7 @@ impl Env {
         );
     }
 
-    pub fn valid_position(&self, position: IVec2) -> bool {
+    pub fn position_inbound(&self, position: IVec2) -> bool {
         let IVec2 { x, y } = position;
 
         x >= 0 && x < self.grid.size.width as i32 && // x
@@ -103,12 +103,22 @@ impl Env {
         }
     }
 
-    // TODO implement a way to update persistent_element
-    //pub fn update_persistent_element(&mut self, position: Position, color: Color)
+    pub fn set_persitent_elements(&mut self, persistent_elements: HashMap<Position, Color>) {
+        self.persistent_elements = persistent_elements;
+    }
+
+    pub fn update_persistent_element(&mut self, position: Position, color: Color) {
+        self.persistent_elements.insert(position, color);
+    }
 
     pub fn move_persistent_element(&mut self, current_position: Position, new_position: Position) {
         if let Some(element) = self.persistent_elements.remove(&current_position) {
             self.persistent_elements.insert(new_position, element);
         }
+    }
+
+    pub fn reset_persistent_element(&mut self, exceptions: Vec<Color>) {
+        self.persistent_elements
+            .retain(|_, color| exceptions.contains(&color));
     }
 }
