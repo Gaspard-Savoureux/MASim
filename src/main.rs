@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use examples::runner;
+use examples::{mining_bot, runner};
 use interface::{
     context::Context,
     keymapping::apply_input,
@@ -31,7 +31,8 @@ async fn main() {
         camera,
     };
 
-    let mut scheduler = runner::main();
+    // let mut scheduler = runner::main();
+    let mut scheduler = mining_bot::main();
 
     let mut start_sim = false;
     loop {
