@@ -193,6 +193,20 @@ impl SwarmAgent {
     }
 }
 
+pub fn load_q_table(filepath: &str) -> Option<HashMap<Q, f32>> {
+    let file = match File::open(filepath) {
+        Ok(file) => file,
+        Err(_) => return None, // We do not wish to crash if the file is non-existant
+    };
+
+    let mut reader = BufReader::new(file);
+
+    let new_q_table: QTable =
+        bincode::deserialize_from(&mut reader).expect("Failed to read q_table");
+
+    Some(new_q_table)
+}
+
 #[cfg(test)]
 mod tests {
     use masim::define_const;
