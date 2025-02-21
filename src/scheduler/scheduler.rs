@@ -7,7 +7,7 @@ use macroquad::{
 
 use crate::{
     agent::{
-        agent::{Agent, IsAgent, StepFunction},
+        agent::{Agent, IsAgent, QTable, StepFunction},
         learning_agent::LearningAgent,
         state::State,
         swarm_agent::SwarmAgent,
@@ -162,9 +162,10 @@ impl Scheduler {
         discount_factor: Option<f32>,
         exploration_rate: Option<f32>,
         step_fn: &StepFunction<SwarmAgent>,
-        q_table_filepath: Option<&str>,
+        q_table: Rc<RefCell<QTable>>,
     ) {
         let mut new_agents: Vec<(Position, Color, AgentRef)> = Vec::with_capacity(n);
+        let mut new_agents_type: Vec<AgentRef> = Vec::with_capacity(n);
 
         for _ in 0..n {
             let position = position.unwrap_or(Position {
@@ -180,10 +181,11 @@ impl Scheduler {
                 discount_factor,
                 exploration_rate,
                 step_fn,
-                q_table_filepath,
+                q_table.clone(),
             ))));
 
-            new_agents.push((position, color, new_agent));
+            new_agents.push((position, color, new_agent.clone()));
+            new_agents_type.push(new_agent);
         }
 
         // Add all the new agents in Vector with all the other agents
@@ -192,10 +194,6 @@ impl Scheduler {
         // Add new agent in agents_per_types
         let agents = self.agents_per_types.get_mut(agent_type);
 
-        let mut new_agents_type: Vec<AgentRef> = new_agents
-            .iter()
-            .map(|(_, _, agent)| agent.clone())
-            .collect();
         match agents {
             Some(list) => {
                 list.append(&mut new_agents_type);
@@ -316,6 +314,12 @@ impl Scheduler {
             // }
         }
 
+        for (agent_type, agents) in self.agents_per_types.clone() {
+            if let Some(agent) = agents.get(0) {
+                agent.borrow().save_q_table(&format!("{}.bin", agent_type));
+                // println!("\t agent_type: {}, nb: {}", agent_type, agents.len());
+            }
+        }
         // DEBUG
         // println!("nb agents in agents: {}", self.agents.len());
         // println!("nb agents per types:");
