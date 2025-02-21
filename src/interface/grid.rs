@@ -140,19 +140,6 @@ impl Grid {
             (y_end - y_start) / self.size.heigth as f32,
         );
 
-        // let agent_size = cell_width / 2.;
-        let agent_size = cell_heigth / 2. - 4.;
-        // Draw agents
-        for (position, color) in agent_positions {
-            let IVec2 { x, y } = position;
-            draw_circle(
-                x_start + (x as f32 * cell_width) + cell_width / 2.,
-                y_start + (y as f32 * cell_heigth) + cell_heigth / 2.,
-                agent_size,
-                color,
-            );
-        }
-
         // Draw persitent elements
         for (position, color) in persistent_elements {
             let IVec2 { x, y } = position;
@@ -162,6 +149,18 @@ impl Grid {
                 cell_width,
                 cell_heigth,
                 *color,
+            );
+        }
+
+        let agent_size = cell_heigth / 2. - 4.;
+        // Draw agents
+        for (position, color) in agent_positions {
+            let IVec2 { x, y } = position;
+            draw_circle(
+                x_start + (x as f32 * cell_width) + cell_width / 2.,
+                y_start + (y as f32 * cell_heigth) + cell_heigth / 2.,
+                agent_size,
+                color,
             );
         }
     }
